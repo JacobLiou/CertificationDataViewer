@@ -276,6 +276,18 @@ namespace Sofar.DataBaseHelper
 
         }
 
+        /// <summary>
+        /// 删除
+        /// </summary>
+        /// <param name="tbName"></param>
+        /// <param name="where"></param>
+        /// <param name="deleteData"></param>
+        /// <returns></returns>
+        public int ExecuteDelete(string tbName, string where)
+        {        
+            string sql = string.Format("DELETE FROM {0} WHERE {1}", tbName, where);
+            return ExecuteNonQuery(sql, new DbParameter[0]);
+        }
         public int ExecuteMutliQuery(List<string> sqlList)
         {
             int res = 0;
@@ -411,17 +423,17 @@ namespace Sofar.DataBaseHelper
                         throw new SystemException("Invalid data type");
                     case ("System.DBNull"):
                         //判断是否为非空属性
-                        if (paramNames[j].Equals("@ID") || paramNames[j].Equals("@NameZh") || paramNames[j].Equals("@DataType"))
-                        {
-                            throw new SystemException("NameZh和DataType字段值不可为空");
-                        }
-                        else
-                        {
+                        //if (paramNames[j].Equals("@ID") || paramNames[j].Equals("@NameZh") || paramNames[j].Equals("@DataType"))
+                        //{
+                        //    //throw new SystemException("NameZh和DataType字段值不可为空");
+                        //}
+                        //else
+                        //{
                             parm.DbType = DbType.String;
                             parm.ParameterName = paramNames[j];
                             parm.Value = null;
                             coll.Add(parm);
-                        }
+                        //}
                         break;
                     case ("System.String"):
                         parm.DbType = DbType.String;
