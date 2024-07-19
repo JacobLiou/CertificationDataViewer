@@ -103,6 +103,8 @@ partial class Form1
         // 
         // uiDataGridView1
         // 
+        uiDataGridView1.AllowUserToAddRows = false;
+        uiDataGridView1.AllowUserToDeleteRows = false;
         dataGridViewCellStyle1.BackColor = Color.FromArgb(235, 243, 255);
         uiDataGridView1.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle1;
         uiDataGridView1.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
@@ -147,7 +149,7 @@ partial class Form1
         uiDataGridView1.SelectedIndex = -1;
         uiDataGridView1.Size = new Size(1860, 827);
         uiDataGridView1.StripeOddColor = Color.FromArgb(235, 243, 255);
-        uiDataGridView1.TabIndex = 6;       
+        uiDataGridView1.TabIndex = 6;
         // 
         // btnExport
         // 
@@ -243,7 +245,7 @@ partial class Form1
         RectColor = Color.DarkSlateGray;
         Resizable = true;
         ShowDragStretch = true;
-        Text = "产品认证证书信息管理V1.0";
+        Text = "产品认证证书信息管理V1.1";
         TitleColor = Color.DarkSlateGray;
         TitleForeColor = Color.Orange;
         ZoomScaleRect = new Rectangle(19, 19, 1304, 695);

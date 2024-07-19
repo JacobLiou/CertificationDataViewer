@@ -292,7 +292,6 @@
             uiButton2.Size = new Size(125, 44);
             uiButton2.TabIndex = 14;
             uiButton2.Text = "取消";
-            uiButton2.TipsFont = new Font("宋体", 9F, FontStyle.Regular, GraphicsUnit.Point);
             uiButton2.Click += CancelButton_Click;
             // 
             // uiButton1
@@ -304,7 +303,6 @@
             uiButton1.Size = new Size(125, 44);
             uiButton1.TabIndex = 13;
             uiButton1.Text = "保存";
-            uiButton1.TipsFont = new Font("宋体", 9F, FontStyle.Regular, GraphicsUnit.Point);
             uiButton1.Click += OkButton_Click;
             // 
             // uiLabel12
@@ -458,7 +456,7 @@
             Controls.Add(uiGroupBox1);
             Name = "InsertForm";
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "InsertForm";
+            Text = "信息编辑";
             uiGroupBox1.ResumeLayout(false);
             ResumeLayout(false);
         }

@@ -4,8 +4,9 @@ using Sunny.UI;
 using System.Data;
 using ClosedXML.Excel;
 using System.Text;
-using DocumentFormat.OpenXml.Vml.Spreadsheet;
 using System.Globalization;
+using System.Data.Common;
+using System.Data.SQLite;
 
 namespace Sofar.CertificationDataViewer;
 
@@ -34,7 +35,7 @@ public partial class Form1 : UIForm
         RefreshDataGridView();
 
         ExportToXLSX(uiDataGridView1, Directory.GetCurrentDirectory() + "\\" + "产品认证统计表_更新.xlsx", false);
-        
+
         // 获取当前时间  
         DateTime now = DateTime.Now;
         // 设置发送邮件时间范围-当天早上8点至9点允许发送
@@ -113,7 +114,11 @@ public partial class Form1 : UIForm
         // 添加HTML链接附件
         //contentBuilder.AppendLine("Attachment: <a href='https://example.com/path/to/attachment'>Attachment Name</a><br/><br/>");
 
-        var toEmails = new List<string> { "wanghui@sofarsolar.com" };//可增加多人
+        //配置文件获取收件人邮箱地址
+        string RecipientEmailAddress = System.Configuration.ConfigurationManager.AppSettings["RecipientEmailAddress"].ToString();
+        if (string.IsNullOrEmpty(RecipientEmailAddress)) return;
+
+        var toEmails = new List<string> { RecipientEmailAddress };//可增加多人
         //var toEmails = new List<string> { "cengtongnian@sofarsolar.com" };
         emailHelper.sendMail(toEmails, contentBuilder.ToString());
     }
@@ -329,7 +334,7 @@ public partial class Form1 : UIForm
         }
         catch (Exception ex)
         {
-            throw new Exception("导入数据库错误，info: " + ex.Message);
+            MessageBox.Show("导入数据库错误，info: " + ex.Message);
         }
     }
 
@@ -368,7 +373,7 @@ public partial class Form1 : UIForm
     public DataTable DbPointTable()
     {
         DataTable dt = new DataTable();
-        string sql = $"select * from Test";
+        string sql = $"SELECT * FROM Test ORDER BY ID ASC";//按ID升序排列
 
         try
         {
@@ -556,71 +561,157 @@ public partial class Form1 : UIForm
     /// <param name="e"></param>
     private void toolStripMenuItem1_Click(object sender, EventArgs e)
     {
-        // 弹出输入数据的对话框
+        int insertId;
+        if (uiDataGridView1.SelectedRows.Count > 0)
+        {
+            // 获取当前选中行的索引
+            int selectedRowIndex = uiDataGridView1.SelectedRows[0].Index;
+            DataGridViewRow selectedRow = uiDataGridView1.Rows[selectedRowIndex];
+            int selectedRowId = Convert.ToInt32(selectedRow.Cells["ID"].Value);
+            insertId = selectedRowId + 1;//选中ID的下一个插入
+        }
+        else
+        {
+            // 获取数据库中最大ID，加1
+            insertId = GetMaxId() + 1;
+        }
+
+        // 弹出输入数据的对话框，并传入初始数据
         InsertForm insertForm = new InsertForm();
+        insertForm.GetID(insertId.ToString());//默认将目标ID赋值文本框
         DialogResult result = insertForm.ShowDialog();
 
         if (result == DialogResult.OK)
         {
             // 获取用户输入的数据
             string[] newData = insertForm.GetInsertedData();
-            // 将数据封装成字典
-            Dictionary<string, string> insertData = new Dictionary<string, string>
+
+            // 用户输入的ID
+            if (int.TryParse(newData[0], out insertId) && insertId >= 1)
             {
-                { "ID",             newData[0] },
-                { "证书编号",       newData[1] },
-                { "发证机构",       newData[2] },
-                { "认证或检测标准", newData[3] },
-                { "产品系列",       newData[4] },
-                { "发证日期",       newData[5] },
-                { "证书有效期",     newData[6] },
-                { "标准有效期",     newData[7] },
-                { "可销售区域",     newData[8] },
-                { "证书有效预警",   newData[9] },
-                { "标准预警",       newData[10] },
-                { "证书预警",       newData[11] },
-                { "说明",           newData[12] },
-            };
+                UpdateSubsequentIds(insertId);//更新新增的ID前，修改受影响行ID                              
+            }
+            else
+            {
+                MessageBox.Show("输入的ID无效，请输入一个大于或者等于1的整数！");
+                return;
+            }
+
+            // 将新数据封装成字典
+            Dictionary<string, string> insertData = new Dictionary<string, string>
+        {
+            { "ID",             newData[0] },
+            { "证书编号",       newData[1] },
+            { "发证机构",       newData[2] },
+            { "认证或检测标准", newData[3] },
+            { "产品系列",       newData[4] },
+            { "发证日期",       newData[5] },
+            { "证书有效期",     newData[6] },
+            { "标准有效期",     newData[7] },
+            { "可销售区域",     newData[8] },
+            { "证书有效预警",   newData[9] },
+            { "标准预警",       newData[10] },
+            { "证书预警",       newData[11] },
+            { "说明",           newData[12] },
+        };
 
             // 插入数据到数据库
             sqlHelper.ExecuteInsert("Test", insertData);
             //刷新界面表格
             RefreshDataGridView();
-
         }
     }
 
     /// <summary>
-    /// 删除表格数据，同步数据库
+    /// 插入前先将大于等于目标ID的所有ID+1
+    /// </summary>
+    /// <param name="insertId"></param>
+    private void UpdateSubsequentIds(int insertId)
+    {
+        string query = @"UPDATE Test SET ID = ID + 1 WHERE ID >= @insertId";
+        var parameters = new List<DbParameter>
+        {
+              new SQLiteParameter("@insertId", insertId)
+        };
+        sqlHelper.ExecuteNonQuery(query, parameters.ToArray());
+    }
+
+    /// <summary>
+    /// 从数据库中获取最大ID
+    /// </summary>
+    /// <returns></returns>
+    private int GetMaxId()
+    {
+        string query = "SELECT MAX(ID) FROM Test";
+        object result = sqlHelper.ExecuteScalar(query);
+        return result == DBNull.Value ? 0 : Convert.ToInt32(result);
+    }
+
+    /// <summary>
+    /// 删除表格数据，同步数据库(支持删除多个连续、不连续ID，删除后使ID保持连续自增)
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
     private void toolStripMenuItem2_Click(object sender, EventArgs e)
     {
-
-        // 获取当前选中行的数据  
+        // 确保有行被选中
         if (uiDataGridView1.SelectedRows.Count > 0)
         {
-            DataGridViewRow selectedRow = uiDataGridView1.SelectedRows[0];
-            string id = selectedRow.Cells["ID"].Value.ToString();
-            // 确认是否真的要删除  
-            DialogResult result = MessageBox.Show($"确定要删除ID为{id}的记录吗？", "确认删除", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-            if (result == DialogResult.Yes)
+            // 记录要删除的ID
+            List<string> idsToDelete = new List<string>();
+
+            foreach (DataGridViewRow selectedRow in uiDataGridView1.SelectedRows)
             {
-                sqlHelper.ExecuteDelete("Test", $"ID='{id}'");
-                MessageBox.Show("删除成功！");
+                string id = selectedRow.Cells["ID"].Value.ToString();
+                idsToDelete.Add(id);
+            }
 
-                //刷新界面表格 
-                RefreshDataGridView();
+            if (idsToDelete.Count > 0)
+            {
+                // 创建一个确认删除弹窗消息
+                string message = $"请确认要删除如下ID的所有信息吗？\n{string.Join("\n", idsToDelete)}";
+                DialogResult result = MessageBox.Show(message, "确认删除", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (result == DialogResult.Yes)
+                {
+                    // 执行删除操作
+                    foreach (string id in idsToDelete)
+                    {
+                        sqlHelper.ExecuteDelete("Test", $"ID='{id}'");
+                    }
+                    // 更新数据库ID(升序且连续)
+                    UpdateIDsSequential();
 
+                    //刷新界面表格
+                    RefreshDataGridView();
+                    MessageBox.Show("删除成功！");
+                }
             }
         }
         else
         {
-            MessageBox.Show("请先选择一条记录进行删除。");
+            MessageBox.Show("请点击最左侧空白列，选中需要删除的行！");
         }
     }
 
+    /// <summary>
+    /// 更新数据库ID(升序且连续)
+    /// </summary>
+    private void UpdateIDsSequential()
+    {
+        // 从数据库中获取所有数据
+
+        var dataTable = sqlHelper.ExecuteTable("SELECT * FROM Test ORDER BY ID");
+
+        // 更新ID使其连续
+        int newId = 1;
+        foreach (DataRow row in dataTable.Rows)
+        {
+            string oldId = row["ID"].ToString();
+            string updateQuery = $"UPDATE Test SET ID={newId} WHERE ID='{oldId}'";
+            sqlHelper.ExecuteNonQuery(updateQuery);
+            newId++;
+        }
+    }
 
     /// <summary>
     /// 修改表格数据，同步数据库
@@ -688,7 +779,7 @@ public partial class Form1 : UIForm
         }
         else
         {
-            MessageBox.Show("请选择一行数据进行修改！");
+            MessageBox.Show("请点击最左侧空白列，选中需要修改的行！");
         }
     }
 

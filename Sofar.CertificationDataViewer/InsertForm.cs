@@ -17,7 +17,7 @@ namespace Sofar.CertificationDataViewer
         {
             InitializeComponent();
         }
-
+  
         private void OkButton_Click(object sender, EventArgs e)
         {
 
@@ -47,6 +47,10 @@ namespace Sofar.CertificationDataViewer
             }
         }
 
+        public void GetID(string id)
+        {
+            uiTextBox1.Text = id;
+        }
         private void CancelButton_Click(object sender, EventArgs e)
         {
             this.DialogResult = DialogResult.Cancel;

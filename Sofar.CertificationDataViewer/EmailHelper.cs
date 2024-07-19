@@ -13,15 +13,16 @@ public class EmailHelper
         //公司邮箱不支持System.Net.Mail，使用MailKit可行  
         try
         {
-            string mailbox = System.Configuration.ConfigurationManager.AppSettings["mailbox"].ToString();
-            if (string.IsNullOrEmpty(mailbox)) return;
-
-            mailbox = Encrypt.DecryptPassword(mailbox);
-
+            string mailbox = System.Configuration.ConfigurationManager.AppSettings["mailbox"].ToString(); 
             string password = System.Configuration.ConfigurationManager.AppSettings["password"].ToString();
+            string IsEncrypt = System.Configuration.ConfigurationManager.AppSettings["IsEncrypt"].ToString();
+            if (string.IsNullOrEmpty(mailbox)) return;
             if (string.IsNullOrEmpty(password)) return;
-
-            password = Encrypt.DecryptPassword(password);
+            if (IsEncrypt == "YES")
+            {
+                mailbox = Encrypt.DecryptPassword(mailbox);
+                password = Encrypt.DecryptPassword(password);
+            }
 
             var message = new MimeMessage();
             //邮件标题
@@ -36,12 +37,22 @@ public class EmailHelper
 
             }
 
-            // 设置抄送（Cc）  
-            message.Cc.Add(new MailboxAddress("", "cengtongnian@sofarsolar.com"));
+            //从配置文件获取抄送邮箱地址（为空则不抄送）
+            string Cc_EmailAddress = System.Configuration.ConfigurationManager.AppSettings["Cc_EmailAddress"].ToString();         
+            if (!string.IsNullOrEmpty(Cc_EmailAddress))
+            { 
+                // 设置抄送（Cc）
+                message.Cc.Add(new MailboxAddress("", Cc_EmailAddress));
+            }
 
-            //// 设置密送（Bcc）  
-            //message.Bcc.Add(new MailboxAddress("", "xxx.com"));
-
+            //从配置文件获取密送邮箱地址（为空则不密送）
+            string Bcc_EmailAddress = System.Configuration.ConfigurationManager.AppSettings["Bcc_EmailAddress"].ToString();
+            if (!string.IsNullOrEmpty(Bcc_EmailAddress))
+            {
+                // 设置密送（Bcc）  
+                message.Bcc.Add(new MailboxAddress("", Bcc_EmailAddress));
+            }
+  
             // 邮件正文部分
             var bodyPart = new TextPart("html")
             {
@@ -51,18 +62,25 @@ public class EmailHelper
             //  Multipart 用于组合正文和附件
             var multipart = new Multipart("mixed");
             multipart.Add(bodyPart);
+        
+            string IsAddTableAttachment = System.Configuration.ConfigurationManager.AppSettings["IsAddTableAttachment"].ToString();            
+            //是否添加表格附件
+            if (IsAddTableAttachment == "YES")
+            {           
+                string TableAttachmentName = System.Configuration.ConfigurationManager.AppSettings["TableAttachmentName"].ToString();
+                if (string.IsNullOrEmpty(TableAttachmentName)) return;
 
-            // 添加表格文件附件
-            var attachmentPath = Directory.GetCurrentDirectory() + "\\" + "产品认证统计表_更新.xlsx"; 
-            var attachment = new MimePart("application", "octet-stream")
-            {
-                Content = new MimeContent(File.OpenRead(attachmentPath), ContentEncoding.Default),
-                ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
-                ContentTransferEncoding = ContentEncoding.Base64,
-                FileName = Path.GetFileName(attachmentPath)
-            };
-            multipart.Add(attachment);
-
+                // 添加表格文件附件
+                var attachmentPath = Directory.GetCurrentDirectory() + "\\" + TableAttachmentName;
+                var attachment = new MimePart("application", "octet-stream")
+                {
+                    Content = new MimeContent(File.OpenRead(attachmentPath), ContentEncoding.Default),
+                    ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
+                    ContentTransferEncoding = ContentEncoding.Base64,
+                    FileName = Path.GetFileName(attachmentPath)
+                };
+                multipart.Add(attachment);
+            }
             ////添加压缩包附件
             //var attachmentData = File.ReadAllBytes(@"D:\VS2022_CodeClone\B5_认证数据工具\Sofar.CertificationDataViewer\bin\Debug.zip");
             //var attachmentStream = new MemoryStream(attachmentData);
