@@ -1,3 +1,5 @@
+using OfficeOpenXml;
+
 namespace Sofar.CertificationDataViewer;
 
 static class Program
@@ -8,6 +10,7 @@ static class Program
     [STAThread]
     static void Main()
     {
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         // To customize application configuration such as set high DPI settings or default font,
         // see https://aka.ms/applicationconfiguration.
         ApplicationConfiguration.Initialize();

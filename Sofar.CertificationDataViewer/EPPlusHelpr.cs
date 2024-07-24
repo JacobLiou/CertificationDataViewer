@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using OfficeOpenXml;
+﻿using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using System.Data;
-using System.Drawing;
-using System.IO;
 
 namespace Sofar.PointTableHelper.ExcelLib
 {
@@ -355,6 +351,122 @@ namespace Sofar.PointTableHelper.ExcelLib
             {
                 package.Dispose();
                 return new List<DataTable>();
+            }
+        }
+
+        public static void ExportToXLSX_BasedOnOriginalTable(DataGridView dataGridView, string OriginalTablePath, string UpdateTablePath, bool prompt)
+        {
+            try
+            {
+                using (var package = new ExcelPackage(new FileInfo(OriginalTablePath)))
+                {
+                    var worksheet = package.Workbook.Worksheets[0];
+
+                    // 起始行和列的位置
+                    int startRow = 2; //数据从第2行开始
+                    int startColumn = 1; //数据从第1列开始
+
+                    // 获取界面表格的数据行数和列数
+                    int dataRowCount = dataGridView.Rows.Count;
+                    int dataColumnCount = dataGridView.Columns.Count;
+
+                    // 获取原始表的行数
+                    int templateRowCount = worksheet.Dimension.End.Row;
+
+                    // 实际行数 > 原始表行数
+                    if (dataRowCount > templateRowCount - startRow + 1)
+                    {
+                        for (int i = templateRowCount + 1; i <= startRow + dataRowCount - 1; i++)
+                        {
+                            // 处理多出的行
+                            worksheet.InsertRow(i, 1);
+
+                            // 复制格式和公式
+                            if (i > startRow)
+                            {
+                                var previousRowRange = worksheet.Cells[i - 1, startColumn, i - 1, startColumn + dataColumnCount - 1];
+                                var newRowRange = worksheet.Cells[i, startColumn, i, startColumn + dataColumnCount - 1];
+
+                                // 复制样式
+                                newRowRange.StyleID = previousRowRange.StyleID;
+                             
+                                // 复制公式
+                                for (int j = startColumn; j < startColumn + dataColumnCount; j++)
+                                {
+                                    var previousCell = worksheet.Cells[i - 1, j];
+                                    var newCell = worksheet.Cells[i, j];
+
+                                    if (!string.IsNullOrEmpty(previousCell.Formula))
+                                    {
+                                        // 更新公式中的行号
+                                        string updatedFormula = previousCell.Formula.Replace((i - 1).ToString(), i.ToString());
+                                        newCell.Formula = updatedFormula;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 实际行数 <= 原始表行数
+                    else
+                    {
+                        // 删除多余的行
+                        for (int i = templateRowCount; i >= startRow + dataRowCount; i--)
+                        {
+                            worksheet.DeleteRow(i);
+                        }
+                    }
+
+                    // 填充数据
+                    for (int i = 0; i < dataRowCount; i++)
+                    {
+                        for (int j = 0; j < dataColumnCount; j++)
+                        {
+                            var cell = worksheet.Cells[startRow + i, startColumn + j];
+                            var newValue = dataGridView.Rows[i].Cells[j].Value?.ToString() ?? string.Empty;
+
+                            // 选出更新的数据
+                            if (string.IsNullOrEmpty(cell.Formula) && cell.Text != newValue)
+                            {
+                                cell.Value = newValue;
+                            }
+
+                            // 重置单元格样式                                                                                                                                  
+                            cell.Style.Fill.PatternType = ExcelFillStyle.None;
+
+                            if (cell.Address.Contains("H") || cell.Address.Contains("J") || cell.Address.Contains("K") || cell.Address.Contains("L"))// H, J, K, L 列
+                            {
+                                // 根据特定值设置样式
+                                if (newValue == "过期" || (double.TryParse(newValue, out double cellValue) && cellValue < 0))
+                                {
+                                    //cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                                    //cell.Style.Fill.BackgroundColor.SetColor(Color.DarkRed);
+                                    cell.Style.Font.Color.SetColor(Color.Red);
+                                }
+                                else
+                                {
+                                    cell.Style.Font.Color.SetColor(Color.Black);
+                                }
+                            }
+                            if (cell.Address.Contains("L"))
+                            {
+                                if (double.TryParse(newValue, out double cellValue) && cellValue > 0)
+                                {
+                                    cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                                    cell.Style.Fill.BackgroundColor.SetColor(Color.DarkRed);
+                                    cell.Style.Font.Color.SetColor(Color.Yellow);
+                                }
+                            }
+                        }
+                    }
+                    // 保存文件
+                    package.SaveAs(new FileInfo(UpdateTablePath));
+                    if (prompt) MessageBox.Show("导出成功！", "信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (prompt) MessageBox.Show($"导出失败：{ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }

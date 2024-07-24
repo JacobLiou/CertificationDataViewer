@@ -34,7 +34,8 @@ public partial class Form1 : UIForm
         //刷新界面表格数据
         RefreshDataGridView();
 
-        ExportToXLSX(uiDataGridView1, Directory.GetCurrentDirectory() + "\\" + "产品认证统计表_更新.xlsx", false);
+        //刷新更新表
+        EPPlusHelpr.ExportToXLSX_BasedOnOriginalTable(uiDataGridView1, Directory.GetCurrentDirectory() + "\\" + "产品认证统计表_原始.xlsx", Directory.GetCurrentDirectory() + "\\" + "产品认证统计表_更新.xlsx", false);
 
         // 获取当前时间  
         DateTime now = DateTime.Now;
@@ -114,13 +115,7 @@ public partial class Form1 : UIForm
         // 添加HTML链接附件
         //contentBuilder.AppendLine("Attachment: <a href='https://example.com/path/to/attachment'>Attachment Name</a><br/><br/>");
 
-        //配置文件获取收件人邮箱地址
-        string RecipientEmailAddress = System.Configuration.ConfigurationManager.AppSettings["RecipientEmailAddress"].ToString();
-        if (string.IsNullOrEmpty(RecipientEmailAddress)) return;
-
-        var toEmails = new List<string> { RecipientEmailAddress };//可增加多人
-        //var toEmails = new List<string> { "cengtongnian@sofarsolar.com" };
-        emailHelper.sendMail(toEmails, contentBuilder.ToString());
+        emailHelper.sendMail(contentBuilder.ToString());
     }
 
     /// <summary>
@@ -532,15 +527,15 @@ public partial class Form1 : UIForm
     private void btnExport_Click(object sender, EventArgs e)
     {
 
-        SaveFileDialog saveFileDialog = new SaveFileDialog();
-        saveFileDialog.Filter = "XLSX files (*.xlsx)|*.xlsx";
-        saveFileDialog.Title = "导出 xlsx 文件";
+        //SaveFileDialog saveFileDialog = new SaveFileDialog();
+        //saveFileDialog.Filter = "XLSX files (*.xlsx)|*.xlsx";
+        //saveFileDialog.Title = "导出 xlsx 文件";
 
-        if (saveFileDialog.ShowDialog() == DialogResult.OK)
-        {
-            string filePath = saveFileDialog.FileName;
-            ExportToXLSX(uiDataGridView1, filePath, true);
-        }
+        //if (saveFileDialog.ShowDialog() == DialogResult.OK)
+        //{
+        //    string filePath = saveFileDialog.FileName;
+        //    ExportToXLSX(uiDataGridView1, filePath, true);
+        //}
 
         //SaveFileDialog saveFileDialog = new SaveFileDialog();
         //saveFileDialog.Filter = "CSV files (*.csv)|*.csv";
@@ -551,6 +546,16 @@ public partial class Form1 : UIForm
         //    string filePath = saveFileDialog.FileName;
         //    ExportToCSV(uiDataGridView1, filePath, true);
         //}
+
+        string OriginalTablePath = Directory.GetCurrentDirectory() + "\\" + "产品认证统计表_原始.xlsx"; // 原始表路径
+        SaveFileDialog saveFileDialog = new SaveFileDialog();
+        saveFileDialog.Filter = "XLSX files (*.xlsx)|*.xlsx";
+
+        if (saveFileDialog.ShowDialog() == DialogResult.OK)
+        {
+            string filePath = saveFileDialog.FileName;
+            EPPlusHelpr.ExportToXLSX_BasedOnOriginalTable(uiDataGridView1, OriginalTablePath, filePath, true);
+        }
 
     }
 
@@ -599,22 +604,21 @@ public partial class Form1 : UIForm
 
             // 将新数据封装成字典
             Dictionary<string, string> insertData = new Dictionary<string, string>
-        {
-            { "ID",             newData[0] },
-            { "证书编号",       newData[1] },
-            { "发证机构",       newData[2] },
-            { "认证或检测标准", newData[3] },
-            { "产品系列",       newData[4] },
-            { "发证日期",       newData[5] },
-            { "证书有效期",     newData[6] },
-            { "标准有效期",     newData[7] },
-            { "可销售区域",     newData[8] },
-            { "证书有效预警",   newData[9] },
-            { "标准预警",       newData[10] },
-            { "证书预警",       newData[11] },
-            { "说明",           newData[12] },
-        };
-
+            {
+                { "ID",             newData[0] },
+                { "证书编号",       newData[1] },
+                { "发证机构",       newData[2] },
+                { "认证或检测标准", newData[3] },
+                { "产品系列",       newData[4] },
+                { "发证日期",       newData[5] },
+                { "证书有效期",     newData[6] },
+                { "标准有效期",     newData[7] },
+                { "可销售区域",     newData[8] },
+                { "证书有效预警",   CheckStatus_CertificateValidityPeriod(newData[6])},
+                { "标准预警",       CheckStatus_StandardValidityPeriod(newData[7])},
+                { "证书预警",       CheckStatus_CertificateValidityPeriod2(newData[6]) },
+                { "说明",           newData[12] },
+            };
             // 插入数据到数据库
             sqlHelper.ExecuteInsert("Test", insertData);
             //刷新界面表格
@@ -762,9 +766,9 @@ public partial class Form1 : UIForm
                     { "证书有效期",     editedData[6] },
                     { "标准有效期",     editedData[7] },
                     { "可销售区域",     editedData[8] },
-                    { "证书有效预警",   editedData[9] },
-                    { "标准预警",       editedData[10] },
-                    { "证书预警",       editedData[11] },
+                    { "证书有效预警",   CheckStatus_CertificateValidityPeriod(editedData[6])},
+                    { "标准预警",       CheckStatus_StandardValidityPeriod(editedData[7])},
+                    { "证书预警",       CheckStatus_CertificateValidityPeriod2(editedData[6]) },
                     { "说明",           editedData[12] },
                 };
 

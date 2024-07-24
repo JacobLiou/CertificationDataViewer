@@ -8,7 +8,7 @@ using Sofar.DataBaseHelper;
 public class EmailHelper
 {
 
-    public void sendMail(List<string> toEmails, string body)
+    public void sendMail(string body)
     {
         //公司邮箱不支持System.Net.Mail，使用MailKit可行  
         try
@@ -28,31 +28,32 @@ public class EmailHelper
             //邮件标题
             message.Subject = $"🚨【预警】{DateTime.Now:yyyy-MM-dd} 认证证书预警信息";
             //发件人邮箱地址
-            message.From.Add(new MailboxAddress($"认证证书预警平台", mailbox)); 
+            message.From.Add(new MailboxAddress($"认证证书预警平台", mailbox));
 
-            //同时发送给多个收件人
-            foreach (var email in toEmails)
+            // 设置收件人、抄送人和密送人
+            string toEmails = System.Configuration.ConfigurationManager.AppSettings["RecipientEmailAddress"].ToString();
+            if (!string.IsNullOrWhiteSpace(toEmails))
             {
-                message.To.Add(new MailboxAddress(null, email));
-
+                ProcessEmailAddresses(toEmails, message.To, "收件人");
             }
-
-            //从配置文件获取抄送邮箱地址（为空则不抄送）
-            string Cc_EmailAddress = System.Configuration.ConfigurationManager.AppSettings["Cc_EmailAddress"].ToString();         
-            if (!string.IsNullOrEmpty(Cc_EmailAddress))
-            { 
-                // 设置抄送（Cc）
-                message.Cc.Add(new MailboxAddress("", Cc_EmailAddress));
-            }
-
-            //从配置文件获取密送邮箱地址（为空则不密送）
-            string Bcc_EmailAddress = System.Configuration.ConfigurationManager.AppSettings["Bcc_EmailAddress"].ToString();
-            if (!string.IsNullOrEmpty(Bcc_EmailAddress))
+            else
             {
-                // 设置密送（Bcc）  
-                message.Bcc.Add(new MailboxAddress("", Bcc_EmailAddress));
+                MessageBox.Show("收件人邮箱地址不能为空");
+                return;
             }
-  
+
+            string ccEmails = System.Configuration.ConfigurationManager.AppSettings["Cc_EmailAddress"].ToString();
+            if (!string.IsNullOrWhiteSpace(ccEmails))
+            {
+                ProcessEmailAddresses(ccEmails, message.Cc, "抄送人");
+            }
+
+            string bccEmails = System.Configuration.ConfigurationManager.AppSettings["Bcc_EmailAddress"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(bccEmails))
+            {
+                ProcessEmailAddresses(bccEmails, message.Bcc, "密送人");
+            }
+
             // 邮件正文部分
             var bodyPart = new TextPart("html")
             {
@@ -111,13 +112,39 @@ public class EmailHelper
                 client.Authenticate($"{mailbox}", $"{password}");
                
                 client.Send(message);
-                //MessageBox.Show("邮件发送成功");
+                MessageBox.Show("邮件发送成功");
                 client.Disconnect(true);
             }
         }
         catch (Exception ex)
         {
-            //MessageBox.Show("邮件发送失败");
+            MessageBox.Show("邮件发送失败:"+ex);
+        }
+    }
+
+    /// <summary>
+    /// 处理邮箱地址(收件人、抄送人和密送人)
+    /// </summary>
+    /// <param name="emailAddresses"></param>
+    /// <param name="addressList"></param>
+    /// <param name="addressType"></param>
+    public void ProcessEmailAddresses(string emailAddresses, InternetAddressList addressList, string addressType)
+    {
+        var addresses = emailAddresses.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                      .Select(email => email.Trim())
+                                      .Where(email => !string.IsNullOrWhiteSpace(email))
+                                      .ToList();
+
+        foreach (var email in addresses)
+        {
+            if (MailboxAddress.TryParse(email, out var mailboxAddress))
+            {
+                addressList.Add(mailboxAddress);
+            }
+            else
+            {
+                MessageBox.Show($"{addressType}邮箱地址非法: {email}");
+            }
         }
     }
 }
