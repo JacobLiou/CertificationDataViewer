@@ -7,6 +7,7 @@ using System.Text;
 using System.Globalization;
 using System.Data.Common;
 using System.Data.SQLite;
+using System.Collections.Specialized;
 
 namespace Sofar.CertificationDataViewer;
 
@@ -57,33 +58,76 @@ public partial class Form1 : UIForm
     /// </summary>
     public void SendWarningEmail()
     {
-        StringBuilder contentBuilder = new StringBuilder();
+        //获取产品线和产品系列的配置信息
+        var productLineToProducts = new Dictionary<string, List<string>>();
+        var productConfigSection = (NameValueCollection)System.Configuration.ConfigurationManager.GetSection("ProductConfigSection");
+        foreach (string key in productConfigSection)
+        {
+            var products = productConfigSection[key].Split(',').Select(p => p.Trim()).ToList();
+            productLineToProducts[key] = products;
+        }
 
-        //邮件正文
-        contentBuilder.AppendLine("Dear All,<br/>");
-        contentBuilder.AppendLine("早上好!以下是今日预警信息(所有产品认证证书信息详情见附件表格):<br/>");
+        //获取产品线和收件人的配置信息
+        var productLineToEmails = new Dictionary<string, List<string>>();
+        var recipientConfigSection = (NameValueCollection)System.Configuration.ConfigurationManager.GetSection("RecipientConfigSection");
+        foreach (string key in recipientConfigSection)
+        {
+            var emails = recipientConfigSection[key].Split(',').Select(p => p.Trim()).ToList();
+            productLineToEmails[key] = emails;
+        }
 
-        // 添加HTML表格的名称，并居中
-        contentBuilder.AppendLine("<h3 style='text-align: center;'>证书预警信息表</h3>");
+        //筛选产品系列对应产品线且证书预警180天以内的记录
+        var productLineToRows = new Dictionary<string, List<DataGridViewRow>>();
+        foreach (var productLine in productLineToProducts.Keys)
+        {
+            productLineToRows[productLine] = new List<DataGridViewRow>();
+        }
 
-        // 添加HTML表格的开始标签，并居中
-        contentBuilder.AppendLine("<table border='1' style='border-collapse: collapse; width: 100%; margin: 0 auto;'>");
-
-        // 添加表头  
-        contentBuilder.AppendLine("<tr>");
-        contentBuilder.AppendLine(string.Format("<th>{0}</th><th>{1}</th><th>{2}</th><th>{3}</th><th>{4}</th><th>{5}</th><th>{6}</th><th>{7}</th><th>{8}</th><th>{9}</th><th>{10}</th><th>{11}</th><th>{12}</th>",
-            "序号", "证书编号", "发证机构", "认证或检测标准", "产品系列", "发证日期", "证书有效期", "标准有效期", "可销售区域", "证书有效预警", "标准预警", "证书预警", "说明"));
-        contentBuilder.AppendLine("</tr>");
-
-        // 遍历DataGridView的行  
         foreach (DataGridViewRow row in uiDataGridView1.Rows)
         {
-            if (!row.IsNewRow && row.Cells["证书预警"].Value != null)
+            if (!row.IsNewRow && row.Cells["证书预警"].Value != null && row.Cells["产品系列"].Value != null)
             {
-                // 将证书预警的值解析为整数  
                 if (int.TryParse(row.Cells["证书预警"].Value.ToString(), out int warningValue))
                 {
-                    // 添加数据行  
+                    string product = row.Cells["产品系列"].Value.ToString();
+                    foreach (var productLine in productLineToProducts)
+                    {
+                        if (productLine.Value.Contains(product))
+                        {
+                            productLineToRows[productLine.Key].Add(row);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 为满足条件的产品线生成相应的邮件内容,并发送给产品线下的所有收件人
+        foreach (var productLine in productLineToRows.Keys)
+        {
+            if (productLineToRows[productLine].Count > 0)
+            {
+                var contentBuilder = new StringBuilder();
+
+                // 邮件正文
+                contentBuilder.AppendLine("Dear All,<br/>");
+                contentBuilder.AppendLine($"早上好! 以下是{productLine}今日预警信息(所有产品认证证书信息详情见附件表格):<br/>");
+
+                // 添加HTML表格的名称，并居中
+                contentBuilder.AppendLine($"<h3 style='text-align: center;'>{productLine}证书预警信息表</h3>");
+
+                // 添加HTML表格的开始标签，并居中
+                contentBuilder.AppendLine("<table border='1' style='border-collapse: collapse; width: 100%; margin: 0 auto;'>");
+
+                // 添加表头
+                contentBuilder.AppendLine("<tr>");
+                contentBuilder.AppendLine(string.Format("<th>{0}</th><th>{1}</th><th>{2}</th><th>{3}</th><th>{4}</th><th>{5}</th><th>{6}</th><th>{7}</th><th>{8}</th><th>{9}</th><th>{10}</th><th>{11}</th><th>{12}</th>",
+                    "序号", "证书编号", "发证机构", "认证或检测标准", "产品系列", "发证日期", "证书有效期", "标准有效期", "可销售区域", "证书有效预警", "标准预警", "证书预警", "说明"));
+                contentBuilder.AppendLine("</tr>");
+
+                // 添加数据行
+                foreach (var row in productLineToRows[productLine])
+                {
                     contentBuilder.AppendLine("<tr>");
                     contentBuilder.AppendLine(string.Format("<td>{0}</td><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td><td>{6}</td><td>{7}</td><td>{8}</td><td>{9}</td><td>{10}</td><td style='color: red;'>{11}</td><td>{12}</td>",
                         row.Cells["ID"].Value?.ToString() ?? "",
@@ -97,25 +141,25 @@ public partial class Form1 : UIForm
                         row.Cells["可销售区域"].Value?.ToString() ?? "",
                         row.Cells["证书有效预警"].Value?.ToString() ?? "",
                         row.Cells["标准预警"].Value?.ToString() ?? "",
-                        warningValue,
+                        row.Cells["证书预警"].Value?.ToString() ?? "",
                         row.Cells["说明"].Value?.ToString() ?? ""));
                     contentBuilder.AppendLine("</tr>");
                 }
+
+                // 添加HTML表格的结束标签
+                contentBuilder.AppendLine("</table>");
+                // 添加表注
+                contentBuilder.AppendLine("<p><strong><span style='color: red;'>注：</span>该表格列出了180天内即将到期的所有认证证书预警信息。</strong></p>");
+                contentBuilder.AppendLine("如有任何问题，请随时与我联系。<br/>谢谢!<br/>");
+
+                // 发送邮件
+                if (productLineToEmails.ContainsKey(productLine))
+                {
+                    string recipients = string.Join(",", productLineToEmails[productLine]);
+                    emailHelper.sendMail(contentBuilder.ToString(), recipients);
+                }
             }
         }
-
-        // 添加HTML表格的结束标签  
-        contentBuilder.AppendLine("</table>");
-        // 添加表注
-        //contentBuilder.AppendLine("<p><strong><span style='color: red;'>注:</strong>该表格列出了180天内即将到期的所有认证证书预警信息。</span></p>");
-
-        contentBuilder.AppendLine("<p><strong><span style='color: red;'>注：</span>该表格列出了180天内即将到期的所有认证证书预警信息。</strong></p>");
-        contentBuilder.AppendLine("如有任何问题，请随时与我联系。<br/>谢谢!<br/>");
-
-        // 添加HTML链接附件
-        //contentBuilder.AppendLine("Attachment: <a href='https://example.com/path/to/attachment'>Attachment Name</a><br/><br/>");
-
-        emailHelper.sendMail(contentBuilder.ToString());
     }
 
     /// <summary>

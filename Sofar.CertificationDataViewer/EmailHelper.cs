@@ -8,7 +8,7 @@ using Sofar.DataBaseHelper;
 public class EmailHelper
 {
 
-    public void sendMail(string body)
+    public void sendMail(string body,string recipients)
     {
         //公司邮箱不支持System.Net.Mail，使用MailKit可行  
         try
@@ -31,10 +31,11 @@ public class EmailHelper
             message.From.Add(new MailboxAddress($"认证证书预警平台", mailbox));
 
             // 设置收件人、抄送人和密送人
-            string toEmails = System.Configuration.ConfigurationManager.AppSettings["RecipientEmailAddress"].ToString();
-            if (!string.IsNullOrWhiteSpace(toEmails))
+
+            //收件人变更为由预警信息得出         
+            if (!string.IsNullOrWhiteSpace(recipients))
             {
-                ProcessEmailAddresses(toEmails, message.To, "收件人");
+                ProcessEmailAddresses(recipients, message.To, "收件人");
             }
             else
             {
@@ -112,7 +113,7 @@ public class EmailHelper
                 client.Authenticate($"{mailbox}", $"{password}");
                
                 client.Send(message);
-                MessageBox.Show("邮件发送成功");
+                //MessageBox.Show("邮件发送成功");
                 client.Disconnect(true);
             }
         }
