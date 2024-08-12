@@ -245,7 +245,7 @@ partial class Form1
         RectColor = Color.DarkSlateGray;
         Resizable = true;
         ShowDragStretch = true;
-        Text = "产品认证证书信息管理V1.3";
+        Text = "产品认证证书信息管理V1.4";
         TitleColor = Color.DarkSlateGray;
         TitleForeColor = Color.Orange;
         ZoomScaleRect = new Rectangle(19, 19, 1304, 695);

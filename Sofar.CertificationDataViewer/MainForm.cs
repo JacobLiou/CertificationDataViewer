@@ -29,7 +29,7 @@ public partial class Form1 : UIForm
 
     private void Form1_Load(object sender, EventArgs e)
     {
-        //每日8点半定时启动程序,更新数据库
+        //每周二8点半定时启动程序,更新数据库
         UpdateSqliteTbble();
 
         //刷新界面表格数据
@@ -40,12 +40,12 @@ public partial class Form1 : UIForm
 
         // 获取当前时间  
         DateTime now = DateTime.Now;
-        // 设置发送邮件时间范围-当天早上8点至9点允许发送
+        // 设置发送邮件时间范围-周二当天早上8点至9点允许发送
         DateTime startTime = new DateTime(now.Year, now.Month, now.Day, 8, 0, 0); // 当天8点0分0秒  
         DateTime endTime = new DateTime(now.Year, now.Month, now.Day, 9, 0, 0); // 当天9点0分0秒  
 
         // 判断当前时间是否在8点到9点之间  
-        if (now >= startTime && now < endTime)
+        if (now >= startTime && now <= endTime && now.DayOfWeek == DayOfWeek.Tuesday)
         {
             // 发送预警邮件  
             SendWarningEmail();

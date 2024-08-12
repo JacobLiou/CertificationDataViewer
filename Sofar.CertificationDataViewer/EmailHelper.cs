@@ -26,7 +26,7 @@ public class EmailHelper
 
             var message = new MimeMessage();
             //邮件标题
-            message.Subject = $"🚨【预警】{DateTime.Now:yyyy-MM-dd} 认证证书预警信息";
+            message.Subject = $"🚨【预警】{DateTime.Now:yyyy-MM-dd} 认证证书预警信息(每周二更新)";
             //发件人邮箱地址
             message.From.Add(new MailboxAddress($"认证证书预警平台", mailbox));
 
